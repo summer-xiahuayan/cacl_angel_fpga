@@ -1,0 +1,39 @@
+// kf_1d.mem - 1D Kalman Filter Instruction ROM
+// Instruction format: {a[4:0], b[4:0], c[1:0], d[1:0], e, f}
+// Memory: DB[0]=x, DB[1]=P, DB[2]=Phi, DB[3]=Q, DB[4]=R, DB[5]=y, DB[6-7]=temp
+
+// INITIALIZATION (Load parameters via DATA_IN)
+1001  // PC=0:  Load Phi -> DB[2]
+1801  // PC=1:  Load Q -> DB[3]
+2001  // PC=2:  Load R -> DB[4]
+0001  // PC=3:  Load x -> DB[0]
+0801  // PC=4:  Load P -> DB[1]
+2801  // PC=5:  Load y -> DB[5]
+
+// KALMAN FILTER ALGORITHM
+// P_pred = P + Q
+08C2  // PC=6:  ADD DB[1]+DB[3], e=1, f=0
+3001  // PC=7:  Store P_pred -> DB[6]
+
+// S = P_pred + R
+3102  // PC=8:  ADD DB[6]+DB[4], e=1, f=0
+3801  // PC=9:  Store S -> DB[7]
+
+// K = P_pred / S (DIV needs WAIT)
+31DE  // PC=10: DIV DB[6]/DB[7], c=WAIT, d=DIV
+3001  // PC=11: Store K -> DB[6]
+
+// innovation = y - x
+2806  // PC=12: SUB DB[5]-DB[0], d=SUB
+3801  // PC=13: Store innov -> DB[7]
+
+// K * innovation
+31CA  // PC=14: MUL DB[6]*DB[7], d=MUL
+3801  // PC=15: Store -> DB[7]
+
+// x_hat = x + K*innovation
+01C2  // PC=16: ADD DB[0]+DB[7], e=1
+0001  // PC=17: Store x_hat -> DB[0]
+
+// HALT
+0020  // PC=18: HALT (c=10)

@@ -1,0 +1,241 @@
+// kf_2d.mem - Optimized 2D Kalman Filter Instruction ROM
+// n=2 states, r=1 measurement (per paper Section 3 & 5)
+// Uses single-cycle ops for ADD/SUB/MUL, WAIT only for DIV
+//
+// Memory Layout:
+//   DB[0-1]   = x1,x2 (state)
+//   DB[2-5]   = P (2x2 covariance: p11,p12,p21,p22)
+//   DB[6-9]   = Phi (2x2 state transition)
+//   DB[10-13] = Q (2x2 process noise)
+//   DB[14-15] = H (1x2 measurement)
+//   DB[16]    = R (measurement noise)
+//   DB[17-18] = G (2x1 control input matrix)
+//   DB[19]    = u (control input)
+//   DB[20]    = y (measurement)
+//   DB[21-31] = temps
+
+// ==== INITIALIZATION: Load 21 parameters via DATA_IN ====
+
+// ==== TIME UPDATE: x^- = Phi*x + G*u ====
+// x1^- = phi11*x1 + phi12*x2 + g1*u
+
+// x2^- = phi21*x1 + phi22*x2 + g2*u
+
+// ==== TIME UPDATE: P^- = Phi*P*Phi^T + Q ====
+// Compute Phi*P
+// (Phi*P)_11 = phi11*p11 + phi12*p21 -> DB[23]
+
+// (Phi*P)_12 = phi11*p12 + phi12*p22 -> DB[24]
+
+// (Phi*P)_21 = phi21*p11 + phi22*p21 -> DB[25]
+
+// (Phi*P)_22 = phi21*p12 + phi22*p22 -> DB[26]
+
+// (Phi*P)*Phi^T + Q -> P^-
+// P^-_11 = (Phi*P)_11*phi11 + (Phi*P)_12*phi12 + q11 -> DB[2]
+
+// P^-_12 = (Phi*P)_11*phi21 + (Phi*P)_12*phi22 + q12 -> DB[3]
+
+// P^-_21 = (Phi*P)_21*phi11 + (Phi*P)_22*phi12 + q21 -> DB[4]
+
+// P^-_22 = (Phi*P)_21*phi21 + (Phi*P)_22*phi22 + q22 -> DB[5]
+
+// ==== MEASUREMENT UPDATE: K = P^-*H^T / (H*P^-*H^T + R) ====
+// (P^-*H^T)_1 = p11*h1 + p12*h2 -> DB[27]
+
+// (P^-*H^T)_2 = p21*h1 + p22*h2 -> DB[28]
+
+// S = H*(P^-*H^T) + R -> DB[29]
+
+// K1 = (P^-*H^T)_1 / S -> DB[23]
+
+// K2 = (P^-*H^T)_2 / S -> DB[24]
+
+// ==== STATE UPDATE: x^+ = x^- + K*(y - H*x^-) ====
+// innovation = y - H*x^- -> DB[25]
+
+// x1^+ = x1^- + K1*innov -> DB[0]
+
+// x2^+ = x2^- + K2*innov -> DB[1]
+
+// ==== COVARIANCE UPDATE: P^+ = (I - K*H)*P^- ====
+// K*H elements
+
+// P^+_11 = p11 - K1*h1*p11 - K1*h2*p21 -> DB[2]
+
+// P^+_12 = p12 - K1*h1*p12 - K1*h2*p22 -> DB[3]
+
+// P^+_21 = p21 - K2*h1*p11 - K2*h2*p21 -> DB[4]
+
+// P^+_22 = p22 - K2*h1*p12 - K2*h2*p22 -> DB[5]
+
+// HALT
+
+// Total instructions: 161
+0001  // PC=0: Load -> DB[0] (x1)
+0801  // PC=1: Load -> DB[1] (x2)
+1001  // PC=2: Load -> DB[2] (p11)
+1801  // PC=3: Load -> DB[3] (p12)
+2001  // PC=4: Load -> DB[4] (p21)
+2801  // PC=5: Load -> DB[5] (p22)
+3001  // PC=6: Load -> DB[6] (phi11)
+3801  // PC=7: Load -> DB[7] (phi12)
+4001  // PC=8: Load -> DB[8] (phi21)
+4801  // PC=9: Load -> DB[9] (phi22)
+5001  // PC=10: Load -> DB[10] (q11)
+5801  // PC=11: Load -> DB[11] (q12)
+6001  // PC=12: Load -> DB[12] (q21)
+6801  // PC=13: Load -> DB[13] (q22)
+7001  // PC=14: Load -> DB[14] (h1)
+7801  // PC=15: Load -> DB[15] (h2)
+8001  // PC=16: Load -> DB[16] (R)
+8801  // PC=17: Load -> DB[17] (g1)
+9001  // PC=18: Load -> DB[18] (g2)
+9801  // PC=19: Load -> DB[19] (u)
+A001  // PC=20: Load -> DB[20] (y)
+300A  // PC=21: MUL DB[6]*DB[0] (phi11*x1)
+A801  // PC=22: Store -> DB[21] 
+384A  // PC=23: MUL DB[7]*DB[1] (phi12*x2)
+B001  // PC=24: Store -> DB[22] 
+AD83  // PC=25: ADD DB[21]+DB[22] in-place (phi11*x1 + phi12*x2)
+8CCA  // PC=26: MUL DB[17]*DB[19] (g1*u)
+B001  // PC=27: Store -> DB[22] 
+AD83  // PC=28: ADD DB[21]+DB[22] in-place (x1^- complete)
+400A  // PC=29: MUL DB[8]*DB[0] (phi21*x1)
+B001  // PC=30: Store -> DB[22] 
+484A  // PC=31: MUL DB[9]*DB[1] (phi22*x2)
+B801  // PC=32: Store -> DB[23] 
+B5C3  // PC=33: ADD DB[22]+DB[23] in-place 
+94CA  // PC=34: MUL DB[18]*DB[19] (g2*u)
+B801  // PC=35: Store -> DB[23] 
+B5C3  // PC=36: ADD DB[22]+DB[23] in-place (x2^- complete)
+308A  // PC=37: MUL DB[6]*DB[2] (phi11*p11)
+B801  // PC=38: Store -> DB[23] 
+390A  // PC=39: MUL DB[7]*DB[4] (phi12*p21)
+C001  // PC=40: Store -> DB[24] 
+BE03  // PC=41: ADD DB[23]+DB[24] in-place ((Phi*P)_11)
+30CA  // PC=42: MUL DB[6]*DB[3] (phi11*p12)
+C001  // PC=43: Store -> DB[24] 
+394A  // PC=44: MUL DB[7]*DB[5] (phi12*p22)
+C801  // PC=45: Store -> DB[25] 
+C643  // PC=46: ADD DB[24]+DB[25] in-place ((Phi*P)_12)
+408A  // PC=47: MUL DB[8]*DB[2] (phi21*p11)
+C801  // PC=48: Store -> DB[25] 
+490A  // PC=49: MUL DB[9]*DB[4] (phi22*p21)
+D001  // PC=50: Store -> DB[26] 
+CE83  // PC=51: ADD DB[25]+DB[26] in-place ((Phi*P)_21)
+40CA  // PC=52: MUL DB[8]*DB[3] (phi21*p12)
+D001  // PC=53: Store -> DB[26] 
+494A  // PC=54: MUL DB[9]*DB[5] (phi22*p22)
+D801  // PC=55: Store -> DB[27] 
+D6C3  // PC=56: ADD DB[26]+DB[27] in-place ((Phi*P)_22)
+B98A  // PC=57: MUL DB[23]*DB[6] 
+D801  // PC=58: Store -> DB[27] 
+C1CA  // PC=59: MUL DB[24]*DB[7] 
+E001  // PC=60: Store -> DB[28] 
+DF03  // PC=61: ADD DB[27]+DB[28] in-place 
+DA82  // PC=62: ADD DB[27]+DB[10] (+q11)
+1001  // PC=63: Store -> DB[2] (P^-_11)
+BA0A  // PC=64: MUL DB[23]*DB[8] 
+D801  // PC=65: Store -> DB[27] 
+C24A  // PC=66: MUL DB[24]*DB[9] 
+E001  // PC=67: Store -> DB[28] 
+DF03  // PC=68: ADD DB[27]+DB[28] in-place 
+DAC2  // PC=69: ADD DB[27]+DB[11] (+q12)
+1801  // PC=70: Store -> DB[3] (P^-_12)
+C98A  // PC=71: MUL DB[25]*DB[6] 
+D801  // PC=72: Store -> DB[27] 
+D1CA  // PC=73: MUL DB[26]*DB[7] 
+E001  // PC=74: Store -> DB[28] 
+DF03  // PC=75: ADD DB[27]+DB[28] in-place 
+DB02  // PC=76: ADD DB[27]+DB[12] (+q21)
+2001  // PC=77: Store -> DB[4] (P^-_21)
+CA0A  // PC=78: MUL DB[25]*DB[8] 
+D801  // PC=79: Store -> DB[27] 
+D24A  // PC=80: MUL DB[26]*DB[9] 
+E001  // PC=81: Store -> DB[28] 
+DF03  // PC=82: ADD DB[27]+DB[28] in-place 
+DB42  // PC=83: ADD DB[27]+DB[13] (+q22)
+2801  // PC=84: Store -> DB[5] (P^-_22)
+138A  // PC=85: MUL DB[2]*DB[14] (p11*h1)
+D801  // PC=86: Store -> DB[27] 
+1BCA  // PC=87: MUL DB[3]*DB[15] (p12*h2)
+E001  // PC=88: Store -> DB[28] 
+DF03  // PC=89: ADD DB[27]+DB[28] in-place ((P^-*H^T)_1)
+238A  // PC=90: MUL DB[4]*DB[14] (p21*h1)
+E001  // PC=91: Store -> DB[28] 
+2BCA  // PC=92: MUL DB[5]*DB[15] (p22*h2)
+E801  // PC=93: Store -> DB[29] 
+E743  // PC=94: ADD DB[28]+DB[29] in-place ((P^-*H^T)_2)
+76CA  // PC=95: MUL DB[14]*DB[27] (h1*(P^-*H^T)_1)
+E801  // PC=96: Store -> DB[29] 
+7F0A  // PC=97: MUL DB[15]*DB[28] (h2*(P^-*H^T)_2)
+F001  // PC=98: Store -> DB[30] 
+EF83  // PC=99: ADD DB[29]+DB[30] in-place 
+EC03  // PC=100: ADD DB[29]+DB[16] in-place (+R -> S)
+DF5E  // PC=101: DIV DB[27]/DB[29] WAIT 
+B801  // PC=102: Store -> DB[23] (K1)
+E75E  // PC=103: DIV DB[28]/DB[29] WAIT 
+C001  // PC=104: Store -> DB[24] (K2)
+754A  // PC=105: MUL DB[14]*DB[21] (h1*x1^-)
+C801  // PC=106: Store -> DB[25] 
+7D8A  // PC=107: MUL DB[15]*DB[22] (h2*x2^-)
+D001  // PC=108: Store -> DB[26] 
+CE83  // PC=109: ADD DB[25]+DB[26] in-place (H*x^-)
+A646  // PC=110: SUB DB[20]-DB[25] (y - H*x^-)
+C801  // PC=111: Store -> DB[25] (innov)
+BE4A  // PC=112: MUL DB[23]*DB[25] (K1*innov)
+D001  // PC=113: Store -> DB[26] 
+AE82  // PC=114: ADD DB[21]+DB[26] (x1^- + K1*innov)
+0001  // PC=115: Store -> DB[0] (x1^+)
+C64A  // PC=116: MUL DB[24]*DB[25] (K2*innov)
+D001  // PC=117: Store -> DB[26] 
+B682  // PC=118: ADD DB[22]+DB[26] (x2^- + K2*innov)
+0801  // PC=119: Store -> DB[1] (x2^+)
+BB8A  // PC=120: MUL DB[23]*DB[14] (K1*h1)
+C801  // PC=121: Store -> DB[25] 
+BBCA  // PC=122: MUL DB[23]*DB[15] (K1*h2)
+D001  // PC=123: Store -> DB[26] 
+C38A  // PC=124: MUL DB[24]*DB[14] (K2*h1)
+D801  // PC=125: Store -> DB[27] 
+C3CA  // PC=126: MUL DB[24]*DB[15] (K2*h2)
+E001  // PC=127: Store -> DB[28] 
+// ==== COVARIANCE UPDATE FIX: Save K2*h*p terms BEFORE overwriting P ====
+// First compute K2*h1*p11, K2*h2*p21, K2*h1*p12, K2*h2*p22 to temps
+D88A  // PC=128: MUL DB[27]*DB[2] (K2*h1*p11) - save before p11 overwritten
+A801  // PC=129: Store -> DB[21] (save K2*h1*p11)
+E10A  // PC=130: MUL DB[28]*DB[4] (K2*h2*p21) - save before p21 overwritten
+B001  // PC=131: Store -> DB[22] (save K2*h2*p21)
+D8CA  // PC=132: MUL DB[27]*DB[3] (K2*h1*p12) - save before p12 overwritten
+F801  // PC=133: Store -> DB[31] (save K2*h1*p12)
+E14A  // PC=134: MUL DB[28]*DB[5] (K2*h2*p22) - save before p22 overwritten
+A001  // PC=135: Store -> DB[20] (reuse y slot, no longer needed)
+// Now compute P^+_11 = p11 - K1*h1*p11 - K1*h2*p21
+C88A  // PC=136: MUL DB[25]*DB[2] (K1*h1*p11)
+E801  // PC=137: Store -> DB[29]
+D10A  // PC=138: MUL DB[26]*DB[4] (K1*h2*p21)
+F001  // PC=139: Store -> DB[30]
+1746  // PC=140: SUB DB[2]-DB[29] (p11 - K1*h1*p11)
+E801  // PC=141: Store -> DB[29]
+EF86  // PC=142: SUB DB[29]-DB[30] (- K1*h2*p21)
+1001  // PC=143: Store -> DB[2] (P^+_11)
+// Now compute P^+_12 = p12 - K1*h1*p12 - K1*h2*p22
+C8CA  // PC=144: MUL DB[25]*DB[3] (K1*h1*p12)
+E801  // PC=145: Store -> DB[29]
+D14A  // PC=146: MUL DB[26]*DB[5] (K1*h2*p22)
+F001  // PC=147: Store -> DB[30]
+1F46  // PC=148: SUB DB[3]-DB[29] (p12 - K1*h1*p12)
+E801  // PC=149: Store -> DB[29]
+EF86  // PC=150: SUB DB[29]-DB[30] (- K1*h2*p22)
+1801  // PC=151: Store -> DB[3] (P^+_12)
+// Now compute P^+_21 using saved values in DB[21], DB[22]
+2546  // PC=152: SUB DB[4]-DB[21] (p21 - K2*h1*p11)
+E801  // PC=153: Store -> DB[29]
+EB06  // PC=154: SUB DB[29]-DB[22] (- K2*h2*p21)
+2001  // PC=155: Store -> DB[4] (P^+_21)
+// Now compute P^+_22 using saved values in DB[31], DB[20]
+2FC6  // PC=156: SUB DB[5]-DB[31] (p22 - K2*h1*p12)
+E801  // PC=157: Store -> DB[29]
+EA06  // PC=158: SUB DB[29]-DB[20] (- K2*h2*p22)
+2801  // PC=159: Store -> DB[5] (P^+_22)
+0030  // PC=160: LOOP (c=11) - jump to loop_addr for continuous operation

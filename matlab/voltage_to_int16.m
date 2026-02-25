@@ -2,8 +2,8 @@
 % 适配卡尔曼滤波/ASIC测试，包含边界截断、结果保存、可视化验证
 
 %% 1. 配置参数（可根据实际需求调整）
-cx_file = 'cx.txt';       % CX数据文件路径
-cy_file = 'cy.txt';       % CY数据文件路径
+cx_file = 'cx_filter.txt';       % CX数据文件路径
+cy_file = 'cy_filter.txt';       % CY数据文件路径
 scale_factor = 32768/5;   % 缩放系数 = 32768/5（公式简化）
 int16_min = -32768;       % 16位有符号数最小值
 int16_max = 32767;        % 16位有符号数最大值
@@ -54,7 +54,7 @@ cy_int16 = int16(cy_int16);
 
 %% 4. 保存转换后的数据（文本格式，便于ASIC/卡尔曼滤波调用）
 % 保存CX转换结果
-fid_cx = fopen('cx_int16.txt', 'w');
+fid_cx = fopen('cx_filter_int16.txt', 'w');
 if fid_cx == -1
     error('无法创建cx_int16.txt，请检查路径权限！');
 end
@@ -64,7 +64,7 @@ end
 fclose(fid_cx);
 
 % 保存CY转换结果
-fid_cy = fopen('cy_int16.txt', 'w');
+fid_cy = fopen('cy_filter_int16.txt', 'w');
 if fid_cy == -1
     error('无法创建cy_int16.txt，请检查路径权限！');
 end
