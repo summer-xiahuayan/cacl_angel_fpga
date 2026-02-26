@@ -2,10 +2,10 @@
 % 适配卡尔曼滤波/ASIC测试，包含边界截断、结果保存、可视化验证
 
 %% 1. 配置参数（可根据实际需求调整）
-cx_file = 'cx_filter.txt';       % CX数据文件路径
-cy_file = 'cy_filter.txt';       % CY数据文件路径
-%scale_factor = 32768/5;   % 缩放系数 = 32768/5（公式简化）
-scale_factor = 32768/2;   % 缩放系数 = 32768/5（公式简化）
+cx_file = 'cx.txt';       % CX数据文件路径
+cy_file = 'cy.txt';       % CY数据文件路径
+scale_factor = 32768/5;   % 缩放系数 = 32768/5（公式简化）
+scale_factor = 32768/5;   % 缩放系数 = 32768/5（公式简化）
 int16_min = -32768;       % 16位有符号数最小值
 int16_max = 32767;        % 16位有符号数最大值
 

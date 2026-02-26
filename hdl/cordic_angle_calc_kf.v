@@ -102,8 +102,11 @@ module cordic_angle_calc_kf
       // 公式：(X*5/32768)*2^14 = (X*5) >> 1（硬件简化）
      // cx_conv_pre <= {{8{cx_in[15]}},cx_in};
      // cy_conv_pre <= {{8{cy_in[15]}},cy_in};
-      cx_kf_in <= {{3{cx_in[15]}},cx_in[15:0],{5{1'b0}}};//$signed({{16{cx_in[15]}}, cx_in}) * 32'd5;
-      cy_kf_in <= {{3{cy_in[15]}},cy_in[15:0],{5{1'b0}}};//$signed(cy_conv_pre >>> 1);
+     // cx_kf_in <= {{3{cx_in[15]}},cx_in[15:0],{5{1'b0}}};//$signed({{16{cx_in[15]}}, cx_in}) * 32'd5;
+      //cy_kf_in <= {{3{cy_in[15]}},cy_in[15:0],{5{1'b0}}};//$signed(cy_conv_pre >>> 1);
+
+      cx_kf_in <= {{8{cx_in[15]}},cx_in[15:0]};
+      cy_kf_in <= {{8{cy_in[15]}},cy_in[15:0]};
     end
   end
 
@@ -133,8 +136,8 @@ module cordic_angle_calc_kf
     //  cx_conv_tmp3 <= cx_conv_tmp2>>>2;
    //   cy_conv_tmp3 <= cy_conv_tmp2>>>2;
       // 步骤4：锁存转换后的数据到CORDIC输入寄存器
-      cx_cordic_in_r <= cx_kf_out[20:5];
-      cy_cordic_in_r <= cy_kf_out[20:5];
+      cx_cordic_in_r <= cx_kf_out[15:0];
+      cy_cordic_in_r <= cy_kf_out[15:0];
       // 置位CORDIC数据加载标志（触发后续10时钟计数）
       cordic_data_load <= 1'b1;
     end else begin

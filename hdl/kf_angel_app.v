@@ -92,7 +92,7 @@ module kf_angel_app
       // 阶段1：启动信号
       if (init_cont == 8'd0) begin
         loop_addr <= 8'd20;       // 固定loop_addr=20（原测试值）
-        DATA_IN   <= real_to_sm(0.0);
+       // DATA_IN   <= real_to_sm(0.0);
         START     <= 1'b1;        // 拉低START
         init_cont <= init_cont + 1'b1;
       end
