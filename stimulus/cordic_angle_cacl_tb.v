@@ -114,9 +114,9 @@ initial begin
 
     // 打开文件
     true_angle_file=$fopen("D:/DLS/LIBEROPRO/cacl_angel/stimulus/angle_deg_360.txt", "r");
-    cx_file  = $fopen("D:/DLS/LIBEROPRO/cacl_angel/stimulus/cx_filter_int16.txt", "r");
-    cy_file  = $fopen("D:/DLS/LIBEROPRO/cacl_angel/stimulus/cy_filter_int16.txt", "r");
-    out_file = $fopen("D:/DLS/LIBEROPRO/cacl_angel/stimulus/angle_filter_result.txt", "w");
+    cx_file  = $fopen("D:/DLS/LIBEROPRO/cacl_angel/stimulus/cx_int16.txt", "r");
+    cy_file  = $fopen("D:/DLS/LIBEROPRO/cacl_angel/stimulus/cy_int16.txt", "r");
+    out_file = $fopen("D:/DLS/LIBEROPRO/cacl_angel/stimulus/angle_result.txt", "w");
     if (cx_file==0 || cy_file==0||true_angle_file==0) begin $display("文件打开失败！"); $stop; end
    // if (out_file!=0) $fwrite(out_file, "数据点,cx,cy,象限,FPGA计算角度(rad),MATLAB计算角度(°)\n");
 
@@ -133,6 +133,7 @@ initial begin
             file_end = 1;
         end
 
+        @(posedge clk);
         @(posedge clk);
         @(posedge clk);
         @(posedge clk);

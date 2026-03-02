@@ -1,0 +1,75 @@
+// PID Controller Instruction ROM (严格匹配指令格式版)
+// 核心公式：u(n) = (Kp+Kd)e(n) + Ki·sum_e - Kd·e(n-1)
+// 内存布局 (复用KF的DB空间):
+//   DB[0]   = Kp (比例系数)          - 循环读取
+//   DB[1]   = Ki (积分系数)          - 循环读取
+//   DB[2]   = Kd (微分系数)          - 循环读取
+//   DB[3]   = SetPoint (期望值)      - 循环读取
+//   DB[4]   = ProcessValue (测量值)  - 循环读取
+//   DB[5]   = e(n) (当前误差)
+//   DB[6]   = e(n-1) (上一周期误差)
+//   DB[7]   = sum_e (积分累加和)
+//   DB[8]   = u(n) (PID输出控制量)   - 最终输出
+//   DB[9-15] = 临时计算区 (temps)
+
+// ==== 循环主逻辑 (PC=0开始，无限循环) ====
+
+// 1. 循环读取外部参数 (Kp/Ki/Kd/期望值/测量值)
+// Load -> DB[0] (Kp): A=0, B=0, C=00, D=00, E=0, F=1 → 0001
+
+
+
+3001  // PC=0:  INIT -> DB[6] (e(n-1))
+3801  // PC=1:  INIT -> DB[7] (sum_e)
+0001  // PC=2:  Load -> DB[0] (Kp)
+0801  // PC=3:  Load -> DB[1] (Ki)
+1001  // PC=4:  Load -> DB[2] (Kd)
+1801  // PC=5:  Load -> DB[3] (SetPoint)
+2001  // PC=6:  Load -> DB[4] (ProcessValue)
+
+
+
+
+// 2. 计算当前误差 e(n) = SetPoint - ProcessValue
+// SUB DB[3]-DB[4] → A=3, B=4, D=01, E=1, F=0 → A646
+1906  // PC=7:  SUB DB[3]-DB[4] (e(n) = 期望值 - 测量值)
+2801  // PC=8:  Store -> DB[5] (保存e(n))
+
+// 3. 计算积分项 Ki·sum_e (先更新累加和)
+// ADD DB[7]+DB[5] → A=7, B=5, D=00, E=1, F=1 → EE83
+3942  // PC=9:  ADD DB[7]+DB[5] (sum_e += e(n))
+3801  // PC=10:  Store -> DB[7] (更新sum_e)
+// MUL DB[1]*DB[7] → A=1, B=7, D=10, E=1, F=0 → 08CA
+09CA  // PC=11:  MUL DB[1]*DB[7] (Ki·sum_e)
+4801  // PC=12: Store -> DB[9] (保存积分项I到temp9)
+
+// 4. 计算 (Kp+Kd)·e(n)
+// MUL DB[0]*DB[5] → A=0, B=5, D=10, E=1, F=0 → 014A
+014A  // PC=13: MUL DB[0]*DB[5] (Kp·e(n))
+5001  // PC=14: Store -> DB[10] (temp10=Kp·e(n))
+// MUL DB[2]*DB[5] → A=2, B=5, D=10, E=1, F=0 → 114A
+114A  // PC=15: MUL DB[2]*DB[5] (Kd·e(n))
+5801  // PC=16: Store -> DB[11] (temp11=Kd·e(n))
+// ADD DB[10]+DB[11] → A=10, B=11, D=00, E=1, F=1 → D583
+52C2  // PC=17: ADD DB[10]+DB[11] ((Kp+Kd)·e(n))
+6001  // PC=18: Store -> DB[12] (保存该项到temp12)
+
+// 5. 计算前两项和：(Kp+Kd)e(n) + Ki·sum_e
+// ADD DB[12]+DB[9] → A=12, B=9, D=00, E=1, F=1 → D643
+6242  // PC=19: ADD DB[12]+DB[9] ((Kp+Kd)e(n) + I)
+6801  // PC=20: Store -> DB[13] (保存前两项和到temp13)
+
+// 6. 计算 Kd·e(n-1) 并从总和中减去
+// MUL DB[2]*DB[6] → A=2, B=6, D=10, E=1, F=0 → 118A
+118A  // PC=21: MUL DB[2]*DB[6] (Kd·e(n-1))
+7001  // PC=22: Store -> DB[14] (temp14=Kd·e(n-1))
+// SUB DB[13]-DB[14] → A=13, B=14, D=01, E=1, F=0 → D746
+6B86  // PC=23: SUB DB[13]-DB[14] (前两项和 - Kd·e(n-1))
+4001  // PC=24: Store -> DB[8] (保存最终输出u(n))
+
+// 7. 更新误差历史：e(n-1) = e(n)
+2800  // PC=25: MOVE DB[5] -> DB[6] (e(n-1) = e(n))
+3001  // PC=26
+
+// 8. 无限循环 (跳回PC=0)
+0030  // PC=27: LOOP (C=11) - 跳转至PC=2

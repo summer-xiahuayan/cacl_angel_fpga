@@ -1,0 +1,83 @@
+% 示例：阶跃响应测试
+clear; clc;
+
+% PID参数
+Kp = 1.0;
+Ki = 0.01;
+Kd = 0.1;
+
+% 仿真参数
+N = 200;                  % 总步数
+setpoint = 50 * ones(N, 1); % 期望值固定为50
+measured = zeros(N, 1);   % 初始测量值为0
+measured(1) = 0;
+
+% 模拟被控对象：测量值 = 上一周期测量值 + 上一周期控制量 * 0.1
+% （简单一阶惯性，便于观察PID调节效果）
+for n = 2:N
+    [u_prev, ~] = discrete_pid(Kp, Ki, Kd, setpoint(1:n-1), measured(1:n-1));
+    measured(n) = measured(n-1) + u_prev(end) * 0.1;
+end
+
+[u, e] = discrete_pid(Kp, Ki, Kd, setpoint, measured);
+
+% 绘图
+figure;
+subplot(2,1,1);
+plot(1:N, setpoint, 'r--', 1:N, measured, 'b-', 'LineWidth', 1.2);
+xlabel('步长 n'); ylabel('值');
+legend('期望值', '测量值');
+title('PID调节过程');
+grid on;
+
+subplot(2,1,2);
+plot(1:N, u, 'k-', 'LineWidth', 1.2);
+xlabel('步长 n'); ylabel('控制量 u(n)');
+title('PID输出控制量');
+grid on;
+
+function [u, e] = discrete_pid(Kp, Ki, Kd, setpoint, measured)
+% discrete_pid 实现离散位置式PID算法
+%   [u, e] = discrete_pid(Kp, Ki, Kd, setpoint, measured)
+%
+% 输入:
+%   Kp        - 比例系数
+%   Ki        - 积分系数
+%   Kd        - 微分系数
+%   setpoint  - 期望值序列 (1xN 或 Nx1)
+%   measured  - 测量值序列 (1xN 或 Nx1)
+%
+% 输出:
+%   u         - PID控制量序列 (1xN)
+%   e         - 误差序列 e(n) = setpoint(n) - measured(n) (1xN)
+
+% 确保输入为列向量
+setpoint = setpoint(:);
+measured = measured(:);
+
+N = length(setpoint);
+if length(measured) ~= N
+    error('setpoint 和 measured 长度必须相同');
+end
+
+e = setpoint - measured;   % 误差序列 e(n)
+u = zeros(N, 1);           % 控制量序列
+sum_e = 0;                 % 积分累加和
+e_prev = 0;                % e(n-1)，初始为0
+
+for n = 1:N
+    sum_e = sum_e + e(n);
+    
+    % 按公式计算 u(n)
+    term1 = (Kp + Kd) * e(n);
+    term2 = Ki * sum_e;
+    term3 = Kd * e_prev;
+    u(n) = term1 + term2 - term3;
+    
+    % 更新上一周期误差
+    e_prev = e(n);
+end
+
+u = u';  % 转成行向量，方便绘图
+e = e';
+end

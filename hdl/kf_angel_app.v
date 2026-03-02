@@ -61,6 +61,7 @@ module kf_angel_app
   // =========================================================================
   // 固定点转换函数（复用原测试模块）
   // =========================================================================
+  /*
   function [W-1:0] real_to_sm;
     input real x;
     reg sign;
@@ -71,7 +72,7 @@ module kf_angel_app
       real_to_sm = {sign, mag_int[W-2:0]};
     end
   endfunction
-
+*/
   // =========================================================================
   // 初始化逻辑（固化系数，无需外部配置）
   // =========================================================================
@@ -88,6 +89,11 @@ module kf_angel_app
       rom_wdata <= 16'd0;
       DIR       <= {ADDRW{1'b0}};
       WRITE     <= 1'b0;
+      kf_pos_out    <= {W{1'b0}};
+      kf_vel_out    <= {W{1'b0}};
+      data_out_valid<= 1'b0;
+      data_cont     <= 16'd0;
+      DATA_IN       <= {W{1'b0}};
     end else if (!init_done) begin
       // 阶段1：启动信号
       if (init_cont == 8'd0) begin
@@ -97,29 +103,32 @@ module kf_angel_app
         init_cont <= init_cont + 1'b1;
       end
       // 阶段2：逐时钟加载固化的KF初始化系数（共21个参数）
+
+      // 例如：0.03 = 0.03 * 16384 = 491.52 → 取整492 → 二进制0000000111101100
+
       else begin
         START <= 1'b0;
         case(init_cont)
-          8'd1:  DATA_IN <= real_to_sm(0.0);    // x1 初始位置
-          8'd2:  DATA_IN <= real_to_sm(0.03);   // x2 初始速度
-          8'd3:  DATA_IN <= real_to_sm(1.0);    // p11
-          8'd4:  DATA_IN <= real_to_sm(0.0);    // p12
-          8'd5:  DATA_IN <= real_to_sm(0.0);    // p21
-          8'd6:  DATA_IN <= real_to_sm(1.0);    // p22
-          8'd7:  DATA_IN <= real_to_sm(1.0);    // phi11
-          8'd8:  DATA_IN <= real_to_sm(0.1);    // phi12
-          8'd9:  DATA_IN <= real_to_sm(0.0);    // phi21
-          8'd10: DATA_IN <= real_to_sm(1.0);    // phi22
-          8'd11: DATA_IN <= real_to_sm(0.01);   // q11
-          8'd12: DATA_IN <= real_to_sm(0.0);    // q12
-          8'd13: DATA_IN <= real_to_sm(0.0);    // q21
-          8'd14: DATA_IN <= real_to_sm(0.01);   // q22
-          8'd15: DATA_IN <= real_to_sm(1.0);    // h1
-          8'd16: DATA_IN <= real_to_sm(0.0);    // h2
-          8'd17: DATA_IN <= real_to_sm(0.1);    // R
-          8'd18: DATA_IN <= real_to_sm(0.0);    // g1
-          8'd19: DATA_IN <= real_to_sm(0.0);    // g2
-          8'd20: DATA_IN <= real_to_sm(0.0);    // u
+          8'd1:  DATA_IN <=24'sh000000;//real_to_sm(0.0);    // x1 初始位置
+          8'd2:  DATA_IN <=24'sh0001ec;//real_to_sm(0.03);   // x2 初始速度
+          8'd3:  DATA_IN <=24'sh004000;//real_to_sm(1.0);    // p11
+          8'd4:  DATA_IN <=24'sh000000;//real_to_sm(0.0);    // p12
+          8'd5:  DATA_IN <=24'sh000000;//real_to_sm(0.0);    // p21
+          8'd6:  DATA_IN <=24'sh004000;//real_to_sm(1.0);    // p22
+          8'd7:  DATA_IN <=24'sh004000;//real_to_sm(1.0);    // phi11
+          8'd8:  DATA_IN <=24'sh000666;//real_to_sm(0.1);    // phi12
+          8'd9:  DATA_IN <=24'sh000000;//real_to_sm(0.0);    // phi21
+          8'd10: DATA_IN <=24'sh004000;//real_to_sm(1.0);    // phi22
+          8'd11: DATA_IN <=24'sh000066;//real_to_sm(0.01);   // q11
+          8'd12: DATA_IN <=24'sh000000;//real_to_sm(0.0);    // q12
+          8'd13: DATA_IN <=24'sh000000;//real_to_sm(0.0);    // q21
+          8'd14: DATA_IN <=24'sh000066;//real_to_sm(0.01);   // q22
+          8'd15: DATA_IN <=24'sh004000;//real_to_sm(1.0);    // h1
+          8'd16: DATA_IN <=24'sh000000;//real_to_sm(0.0);    // h2
+          8'd17: DATA_IN <=24'sh000666;//real_to_sm(0.1);    // R
+          8'd18: DATA_IN <=24'sh000000;//real_to_sm(0.0);    // g1
+          8'd19: DATA_IN <=24'sh000000;//real_to_sm(0.0);    // g2
+          8'd20: DATA_IN <=24'sh000000;//real_to_sm(0.0);    // u
           8'd21: begin
             DATA_IN  <= meas_in;   // 第一个测量值（外部输入）
             init_done <= 1'b1;     // 初始化完成，进入运行阶段
@@ -130,9 +139,23 @@ module kf_angel_app
           init_cont <= init_cont + 1'b1;
         end
       end
+    end else if (init_done) begin
+      // 初始化完成后，按data_out_valid_dut触发数据更新
+      if (data_out_valid_dut) begin
+        // 输出滤波后数据
+        kf_pos_out    <= DATA_OUT;
+        kf_vel_out    <= 'd0;//dut.Memory_Registers.Data_Bank_inst.mem[1]; // 速度从内部存储读取
+        data_out_valid<= 1'b1;
+        // 输入下一个测量值
+        DATA_IN       <= meas_in;
+        data_cont     <= data_cont + 1'b1;
+      end else begin
+        data_out_valid<= 1'b0;
+      end
     end
+    
   end
-
+/*
   // =========================================================================
   // 运行阶段：数据输入/输出逻辑（按你指定的时序）
   // =========================================================================
@@ -158,5 +181,5 @@ module kf_angel_app
       end
     end
   end
-
+*/
 endmodule

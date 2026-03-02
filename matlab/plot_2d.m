@@ -2,8 +2,8 @@
 % 适配所有MATLAB版本，兼容低版本语法
 
 %% 1. 读取原始数据（替换为你的实际文件路径）
-cx_raw = importdata('cx.txt');  % 横坐标数据
-cy_raw = importdata('cy.txt');  % 纵坐标数据
+cx_raw = importdata('cx_filter.txt');  % 横坐标数据
+cy_raw = importdata('cy_filter.txt');  % 纵坐标数据
 
 %% 2. 数据合法性检查（避免绘图报错）
 len_cx = length(cx_raw);
@@ -26,7 +26,7 @@ plot(cx_raw, cy_raw, 'b-o', 'LineWidth',1.2, 'MarkerSize',4, 'MarkerFaceColor','
 %% 4. 可视化优化（提升可读性）
 xlabel('cx (横坐标)', 'FontSize',11);
 ylabel('cy (纵坐标)', 'FontSize',11);
-title('原始轨迹图 (cx-cy)', 'FontSize',12, 'FontWeight','bold');
+title('滤波后轨迹图 (cx-cy)', 'FontSize',12, 'FontWeight','bold');
 
 grid on;          % 显示网格
 grid minor;       % 显示细网格

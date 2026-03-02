@@ -3,8 +3,8 @@
 % 注：若需缩放到其他范围（如16位有符号数范围），可修改归一化系数
 
 %% 1. 配置参数（直接填入FFT计算得到的结果）
-cx_file = 'cx_int16.txt';   % CX原始数据文件
-cy_file = 'cy_int16.txt';   % CY原始数据文件
+cx_file = 'cx_filter_int16.txt';   % CX原始数据文件
+cy_file = 'cy_filter_int16.txt';   % CY原始数据文件
 % FFT计算得到的直流分量和最高频率峰值（替换为你的实际结果）
 cx_dc = 17685;           % CX直流分量
 cx_peak_amp = 5255;      % CX最高频率峰值幅值
@@ -47,7 +47,7 @@ cy_normalized = ((cy_data - cy_dc) .* cy_norm_coeff)/2^10;
 
 %% 5. 保存归一化后的数据（无科学计数法）
 % 保存CX归一化结果
-fid_cx = fopen('cx_normalized.txt', 'w');
+fid_cx = fopen('cx_filter_normalized.txt', 'w');
 if fid_cx == -1
     error('无法创建cx_normalized.txt，请检查权限！');
 end
@@ -57,7 +57,7 @@ end
 fclose(fid_cx);
 
 % 保存CY归一化结果
-fid_cy = fopen('cy_normalized.txt', 'w');
+fid_cy = fopen('cy_filter_normalized.txt', 'w');
 if fid_cy == -1
     error('无法创建cy_normalized.txt，请检查权限！');
 end
