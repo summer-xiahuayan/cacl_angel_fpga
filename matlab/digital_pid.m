@@ -4,10 +4,10 @@ clear; clc;
 % PID参数
 Kp = 0.04;
 Ki = 0.01;
-Kd = 0;
+Kd = 0.1;
 
 % 仿真参数
-N = 200;                  % 总步数
+N = 2000;                  % 总步数
 setpoint = 15.5; % 期望值固定为50
 measured = 0;   % 初始测量值为0
 
@@ -28,7 +28,7 @@ for n = 1:N
     
     % 更新上一周期误差
     e_prev = e;
-    measured=4*u;
-    fprintf('u：%.4f\n', u);
+    measured=4*u+5;
+    fprintf('u：%.6f\n', u);
 end
 

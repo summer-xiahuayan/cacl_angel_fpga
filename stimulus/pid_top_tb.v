@@ -149,7 +149,7 @@ module pid_top_tb();
 
         // 打印关键迭代结果
  
-         $display("%4d | %8.2f ",iter + 1,pid_output);
+         $display("%4d | %8.6f ",iter + 1,pid_output);
       end
 
      
