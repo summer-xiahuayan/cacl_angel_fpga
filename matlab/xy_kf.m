@@ -14,7 +14,6 @@ y_true = cos(2*pi*6*t);  % y真实位置（小幅波动）
 x_meas = importdata('cx.txt');
 y_meas = importdata('cy.txt');
 
-
 %% 2. 卡尔曼滤波参数初始化（核心简化）
 % 状态向量 X = [x, y]' （仅位置，无速度）
 X = [x_meas(1); y_meas(1)];  % 初始状态（用第一个观测值初始化）
@@ -29,7 +28,7 @@ H = [1, 0;
 
 % 过程噪声协方差矩阵 Q（描述“位置不变”模型的不确定性）
 % 若点几乎静止，Q调小；若有小幅运动，Q适当调大
-Q = 1e-3 * eye(2);  
+Q = 0.01 * eye(2);  
 
 % 观测噪声协方差矩阵 R（匹配观测噪声大小，噪声大则调大）
 R = 0.04 * eye(2);  
@@ -83,3 +82,36 @@ plot(x_meas, y_meas, 'r-', 'MarkerSize',6, 'DisplayName','观测点');
 plot(X_filter(1,:), X_filter(2,:), 'g-', 'LineWidth',1.5, 'DisplayName','滤波轨迹');
 xlabel('x 位置'); ylabel('y 位置');
 legend('Location','best'); grid on; title('二维轨迹整体对比');
+
+%% 5. 保存滤波后的数据为TXT文件（每行一个点，保留6位小数）
+% 定义保存路径和文件名（可自行修改）
+x_filter_file = 'x_filterxy_result.txt';  % x方向滤波值保存文件
+y_filter_file = 'y_filterxy_result.txt';  % y方向滤波值保存文件
+
+% 提取数据（转置为列向量，确保每行一个点）
+x_data = X_filter(1,:)';  % 转置后为N×1的列向量
+y_data = X_filter(2,:)';  % 转置后为N×1的列向量
+
+% 保存x方向数据（保留6位小数，每行一个值）
+fid_x = fopen(x_filter_file, 'w');
+if fid_x == -1
+    error('无法创建x方向滤波数据文件，请检查路径权限！');
+end
+for i = 1:length(x_data)
+    fprintf(fid_x, '%.6f\n', x_data(i));  % %.6f 表示保留6位小数
+end
+fclose(fid_x);
+
+% 保存y方向数据（保留6位小数，每行一个值）
+fid_y = fopen(y_filter_file, 'w');
+if fid_y == -1
+    error('无法创建y方向滤波数据文件，请检查路径权限！');
+end
+for i = 1:length(y_data)
+    fprintf(fid_y, '%.6f\n', y_data(i));
+end
+fclose(fid_y);
+
+% 提示保存完成
+fprintf('x方向滤波数据已保存至：%s\n', x_filter_file);
+fprintf('y方向滤波数据已保存至：%s\n', y_filter_file);
